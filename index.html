@@ -394,6 +394,22 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="form-group" id="cgInfoOption" style="display: none;">
+                    <label>
+                        Would you like to enter caregiver information?
+                    </label>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="cgInfoYes" name="caregiverInfo" value="yes">
+                            <label for="cgInfoYes">Yes</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="cgInfoNo" name="caregiverInfo" value="no">
+                            <label for="cgInfoNo">No</label>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="cgFields" style="display: none;">
@@ -516,14 +532,15 @@
         // ========================================================================
         const REDCAP_CONFIG = {
             // REDCap API URL
-            apiUrl: 'https://redcap.ctsc.weill.cornell.edu/redcap_protocols/redcap_v15.5.30/API/',
+            apiUrl: 'https://redcap.ctsc.weill.cornell.edu/redcap_protocols/api/',
 
-            // Event names - now 4 separate arms
+            // Event names - now 5 separate arms
             arms: {
                 caregiver: 'baseline_arm_1',      // record_type 1
-                adult: 'baseline_arm_2',               // record_type 2
-                child817: 'baseline_arm_3',        // record_type 3
-                child67: 'baseline_arm_4'           // record_type 4
+                adult: 'baseline_arm_2',          // record_type 2
+                child1217: 'baseline_arm_3',      // record_type 3 (updated to 12-17)
+                child67: 'baseline_arm_4',        // record_type 4
+                child811: 'baseline_arm_6'        // record_type 6 (new: 8-11)
             },
             
             // Field names
@@ -557,18 +574,32 @@
         const newPatientFields = document.getElementById('newPatientFields');
         const existingPatientFields = document.getElementById('existingPatientFields');
 
-        // Set max date for DOB to today
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('ptDob').max = today;
+        // Set max date for DOB to today (timezone-aware)
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayFormatted = `${year}-${month}-${day}`;
+        document.getElementById('ptDob').max = todayFormatted;
 
-        // Calculate age from date of birth
+        // Calculate age from date of birth (timezone-aware)
         function calculateAge(dob) {
-            const birthDate = new Date(dob);
+            const birthDate = new Date(dob + 'T00:00:00'); // Treat as local midnight
             const today = new Date();
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const monthDiff = today.getMonth() - birthDate.getMonth();
             
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            // Get local date components
+            const todayYear = today.getFullYear();
+            const todayMonth = today.getMonth();
+            const todayDay = today.getDate();
+            
+            const birthYear = birthDate.getFullYear();
+            const birthMonth = birthDate.getMonth();
+            const birthDay = birthDate.getDate();
+            
+            let age = todayYear - birthYear;
+            
+            // Check if birthday hasn't occurred yet this year
+            if (todayMonth < birthMonth || (todayMonth === birthMonth && todayDay < birthDay)) {
                 age--;
             }
             
@@ -671,15 +702,37 @@
         document.querySelectorAll('input[name="caregiverConsent"]').forEach(radio => {
             radio.addEventListener('change', function() {
                 if (this.value === 'yes') {
+                    // Consent given - show fields immediately
+                    document.getElementById('cgInfoOption').style.display = 'none';
                     cgFields.style.display = 'block';
                     document.getElementById('cgFirstName').required = true;
                     document.getElementById('cgLastName').required = true;
                     document.getElementById('cgEmail').required = true;
+                    // Clear the caregiver info radio selection
+                    document.getElementById('cgInfoYes').checked = false;
+                    document.getElementById('cgInfoNo').checked = false;
                 } else {
+                    // Consent not given - show option to enter info
+                    document.getElementById('cgInfoOption').style.display = 'block';
                     cgFields.style.display = 'none';
                     document.getElementById('cgFirstName').required = false;
                     document.getElementById('cgLastName').required = false;
                     document.getElementById('cgEmail').required = false;
+                }
+            });
+        });
+
+        // Show/hide caregiver fields based on info entry preference (when consent is "no")
+        document.querySelectorAll('input[name="caregiverInfo"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'yes') {
+                    cgFields.style.display = 'block';
+                    // Fields are optional when consent is "no"
+                    document.getElementById('cgFirstName').required = false;
+                    document.getElementById('cgLastName').required = false;
+                    document.getElementById('cgEmail').required = false;
+                } else {
+                    cgFields.style.display = 'none';
                 }
             });
         });
@@ -810,13 +863,17 @@
                 caregiverConsent = consentRadio ? consentRadio.value : null;
             }
             
+            // Check if caregiver info should be collected even without consent
+            const caregiverInfoChoice = document.querySelector('input[name="caregiverInfo"]:checked')?.value;
+            const collectCgInfo = caregiverConsent === 'yes' || (caregiverConsent === 'no' && caregiverInfoChoice === 'yes');
+            
             const cgPhone = formatPhoneNumber(document.getElementById('cgPhone').value.trim());
             const ptPhone = formatPhoneNumber(document.getElementById('ptPhone').value.trim());
             const cgEmail = document.getElementById('cgEmail').value.trim();
             let ptEmail = document.getElementById('ptEmail').value.trim();
             
-            // If participant is under 18 and pt_email is blank, use cg_email
-            if (!isAdult && !ptEmail && cgEmail) {
+            // If participant is under 18 and pt_email is blank, use cg_email (only if cg info was collected)
+            if (!isAdult && !ptEmail && cgEmail && collectCgInfo) {
                 ptEmail = cgEmail;
             }
             
@@ -828,6 +885,7 @@
                 isAdult: isAdult,
                 notificationPreference: notificationPreference,
                 caregiverConsent: caregiverConsent,
+                collectCgInfo: collectCgInfo,
                 cgFirstName: document.getElementById('cgFirstName').value.trim(),
                 cgLastName: document.getElementById('cgLastName').value.trim(),
                 cgEmail: cgEmail,
@@ -872,19 +930,24 @@
             let targetRecordType = null;
             let newRecordId = formData.existingRecordId + '-2';
             
-            // If in Arm 3 (child 8-17), transition to Arm 2 (adult)
-            if (currentArm === REDCAP_CONFIG.arms.child817) {
+            // If in Arm 3 (child 12-17), transition to Arm 2 (adult)
+            if (currentArm === REDCAP_CONFIG.arms.child1217) {
                 targetArm = REDCAP_CONFIG.arms.adult;
                 targetRecordType = 2;
             }
-            // If in Arm 4 (child 6-7), transition to Arm 3 (child 8-17)
-            else if (currentArm === REDCAP_CONFIG.arms.child67) {
-                targetArm = REDCAP_CONFIG.arms.child817;
+            // If in Arm 6 (child 8-11), transition to Arm 3 (child 12-17)
+            else if (currentArm === REDCAP_CONFIG.arms.child811) {
+                targetArm = REDCAP_CONFIG.arms.child1217;
                 targetRecordType = 3;
+            }
+            // If in Arm 4 (child 6-7), transition to Arm 6 (child 8-11)
+            else if (currentArm === REDCAP_CONFIG.arms.child67) {
+                targetArm = REDCAP_CONFIG.arms.child811;
+                targetRecordType = 6;
             }
             // Otherwise, invalid transition
             else {
-                throw new Error(`Invalid transition: Record is in ${currentArm}. Can only transition from Arm 3 or Arm 4.`);
+                throw new Error(`Invalid transition: Record is in ${currentArm}. Can only transition from Arm 3, Arm 4, or Arm 6.`);
             }
             
             // Create new record in target arm
@@ -905,8 +968,10 @@
                 isTransition: true,
                 oldRecordId: formData.existingRecordId,
                 newRecordId: newRecordId,
-                fromArm: currentArm === REDCAP_CONFIG.arms.child817 ? 'Arm 3 (8-17)' : 'Arm 4 (6-7)',
-                toArm: targetArm === REDCAP_CONFIG.arms.adult ? 'Arm 2 (18+)' : 'Arm 3 (8-17)'
+                fromArm: currentArm === REDCAP_CONFIG.arms.child1217 ? 'Arm 3 (12-17)' : 
+                         currentArm === REDCAP_CONFIG.arms.child811 ? 'Arm 6 (8-11)' : 'Arm 4 (6-7)',
+                toArm: targetArm === REDCAP_CONFIG.arms.adult ? 'Arm 2 (18+)' : 
+                       targetArm === REDCAP_CONFIG.arms.child1217 ? 'Arm 3 (12-17)' : 'Arm 6 (8-11)'
             };
         }
 
@@ -1046,22 +1111,34 @@
             const ptId = String(nextRecordNumber).padStart(4, '0') + '-PT';
             const cgId = String(nextRecordNumber).padStart(4, '0') + '-CG';
             
-            // Determine if we should create CG record
+            // Determine if we should create CG record (only if consented)
             const createCG = formData.caregiverConsent === 'yes';
+            
+            // Determine if we should include CG info in PT record
+            const includeCgInfoInPt = formData.collectCgInfo;
             
             if (createCG) {
                 console.log(`Creating Family ${nextRecordNumber}: PT=${ptId}, CG=${cgId}`);
+            } else if (includeCgInfoInPt) {
+                console.log(`Creating Participant Only ${nextRecordNumber}: PT=${ptId} (caregiver did not consent but info provided)`);
             } else {
                 console.log(`Creating Participant Only ${nextRecordNumber}: PT=${ptId} (caregiver did not consent)`);
             }
             
-            // Determine record_type and arm: 3 if 8-17, 4 if <8
+            // Determine record_type and arm based on age ranges
             let recordType, ptArm, cgArm;
-            if (formData.age >= 8) {
+            if (formData.age >= 12) {
+                // Ages 12-17: Arm 3, record_type 3
                 recordType = 3;
-                ptArm = REDCAP_CONFIG.arms.child817;
+                ptArm = REDCAP_CONFIG.arms.child1217;
+                cgArm = REDCAP_CONFIG.arms.caregiver;
+            } else if (formData.age >= 8) {
+                // Ages 8-11: Arm 6, record_type 6
+                recordType = 6;
+                ptArm = REDCAP_CONFIG.arms.child811;
                 cgArm = REDCAP_CONFIG.arms.caregiver;
             } else {
+                // Ages 6-7: Arm 4, record_type 4
                 recordType = 4;
                 ptArm = REDCAP_CONFIG.arms.child67;
                 cgArm = REDCAP_CONFIG.arms.caregiver;
@@ -1069,7 +1146,7 @@
             
             // STEP 3: Create participant record
             updateProgress(2);
-            await createPtRecord(formData.apiToken, ptId, formData, recordType, ptArm, createCG);
+            await createPtRecord(formData.apiToken, ptId, formData, recordType, ptArm, includeCgInfoInPt);
             
             // STEP 4: Create caregiver record (only if consented)
             if (createCG) {
@@ -1096,7 +1173,8 @@
                     isAdult: false,
                     cgCreated: false,
                     recordNumber: nextRecordNumber,
-                    ptId: ptId
+                    ptId: ptId,
+                    caregiverInfoProvided: includeCgInfoInPt
                 };
             }
         }
@@ -1178,7 +1256,7 @@
             }
             
             // If minor and caregiver info should be included
-            if (!formData.isAdult && includeCgInfo && formData.caregiverConsent === 'yes') {
+            if (!formData.isAdult && includeCgInfo && formData.collectCgInfo) {
                 record[0][REDCAP_CONFIG.fields.cgFirstName] = formData.cgFirstName;
                 record[0][REDCAP_CONFIG.fields.cgLastName] = formData.cgLastName;
                 record[0][REDCAP_CONFIG.fields.cgEmail] = formData.cgEmail;
@@ -1361,12 +1439,17 @@
                     </p>
                 `;
             } else {
+                const hasCargiverInfo = result.caregiverInfoProvided;
+                const message = hasCargiverInfo 
+                    ? 'Note: Caregiver information included in participant record (caregiver did not consent to participate)' 
+                    : 'Note: Caregiver record not created (caregiver did not consent)';
+                
                 linksDisplay.innerHTML = `
                     <h3>📋 Enrollment Complete!</h3>
                     <p style="margin-bottom: 15px;">
                         <strong>Record Number:</strong> ${result.recordNumber}<br>
                         <strong>Participant Record ID:</strong> ${result.ptId}<br>
-                        <em>Note: Caregiver record not created (caregiver did not consent)</em>
+                        <em>${message}</em>
                     </p>
                 `;
             }
