@@ -240,815 +240,422 @@
             color: #155724;
         }
 
-        .progress-step.complete::before {
+        .progress-step.complete:before {
             content: "✓ ";
             font-weight: bold;
         }
 
         .progress-step.current {
             font-weight: bold;
+            color: #004085;
         }
 
-        .error-message {
-            color: #e74c3c;
-            font-size: 13px;
-            margin-top: 5px;
-            display: none;
+        .progress-step.current:before {
+            content: "→ ";
+        }
+
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Family Enrollment Form</h1>
-        <p class="subtitle">Please fill out all required information</p>
+        <h1>🏥 Family Enrollment Form</h1>
+        <p class="subtitle">New Patient Enrollment</p>
 
         <div class="info-box">
-            ℹ️ This form will create records in REDCap. Participants 18+ will have a single PT record, minors will have linked PT and CG records.
+            <strong>📝 Instructions:</strong> This form is used to enroll new patients into the study. All patients will be enrolled in the baseline arm.
         </div>
 
         <form id="enrollmentForm">
-            <div class="section-title">REDCap API Configuration</div>
+            <!-- API Token -->
+            <div class="section-title">🔑 API Configuration</div>
+            
+            <div class="form-group">
+                <label for="apiToken">REDCap API Token <span class="required">*</span></label>
+                <input type="password" id="apiToken" name="apiToken" required placeholder="Enter your REDCap API token">
+            </div>
+
+            <!-- Participant Information -->
+            <div class="section-title">👤 Participant Information</div>
 
             <div class="form-group">
-                <label for="apiToken">
-                    REDCap API Token<span class="required">*</span>
-                </label>
-                <input 
-                    type="password" 
-                    id="apiToken" 
-                    name="apiToken" 
-                    required
-                    placeholder="Enter your REDCap API token"
-                    autocomplete="off"
-                >
-                <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                    Your API token will not be saved and is only used for this session
+                <label for="ptFirstName">First Name <span class="required">*</span></label>
+                <input type="text" id="ptFirstName" name="ptFirstName" required>
+            </div>
+
+            <div class="form-group">
+                <label for="ptLastName">Last Name <span class="required">*</span></label>
+                <input type="text" id="ptLastName" name="ptLastName" required>
+            </div>
+
+            <div class="form-group">
+                <label for="ptDob">Date of Birth <span class="required">*</span></label>
+                <input type="date" id="ptDob" name="ptDob" required>
+            </div>
+
+            <div class="form-group" id="ageDisplay" style="display: none;">
+                <label>Calculated Age:</label>
+                <div style="padding: 12px 15px; background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; font-weight: bold; color: #333;">
+                    <span id="calculatedAge">--</span> years old
                 </div>
             </div>
 
-            <div class="section-title">Patient Information</div>
+            <div class="form-group">
+                <label for="ptEmail">Email</label>
+                <input type="email" id="ptEmail" name="ptEmail" placeholder="participant@example.com">
+            </div>
 
             <div class="form-group">
-                <label>
-                    Is this a new or existing patient?<span class="required">*</span>
-                </label>
+                <label for="ptPhone">Phone Number</label>
+                <input type="tel" id="ptPhone" name="ptPhone" placeholder="(555) 555-5555">
+            </div>
+
+            <!-- Notification Preference -->
+            <div class="form-group">
+                <label>How would they like to receive notifications? <span class="required">*</span></label>
                 <div class="radio-group">
                     <div class="radio-option">
-                        <input type="radio" id="patientNew" name="patientType" value="new" required>
-                        <label for="patientNew">New Patient</label>
+                        <input type="radio" id="notifMyCap" name="notificationPreference" value="1" required>
+                        <label for="notifMyCap">MyCap</label>
                     </div>
                     <div class="radio-option">
-                        <input type="radio" id="patientExisting" name="patientType" value="existing">
-                        <label for="patientExisting">Existing Patient</label>
+                        <input type="radio" id="notifEmail" name="notificationPreference" value="2">
+                        <label for="notifEmail">Email</label>
                     </div>
                 </div>
             </div>
 
-            <div id="existingPatientFields" style="display: none;">
+            <!-- Caregiver Consent (shown for minors) -->
+            <div id="caregiverConsentSection" class="hidden">
+                <div class="section-title">👨‍👩‍👧 Caregiver Participation</div>
+                
                 <div class="form-group">
-                    <label for="existingRecordId">
-                        Existing Record ID<span class="required">*</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        id="existingRecordId" 
-                        name="existingRecordId" 
-                        placeholder="e.g., 0001-PT"
-                        pattern="^\d{4}-PT$"
-                    >
-                    <div style="font-size: 12px; color: #666; margin-top: 5px;">
-                        Format: ####-PT (e.g., 0001-PT)
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="existingEmail">
-                        Email Address<span class="required">*</span>
-                    </label>
-                    <input 
-                        type="email" 
-                        id="existingEmail" 
-                        name="existingEmail" 
-                        placeholder="patient@example.com"
-                    >
-                </div>
-            </div>
-
-            <div id="newPatientFields" style="display: none;">
-                <div class="form-group">
-                    <label for="ptDob">
-                        Participant Date of Birth<span class="required">*</span>
-                    </label>
-                    <input 
-                        type="date" 
-                        id="ptDob" 
-                        name="ptDob" 
-                        max=""
-                    >
-                    <div class="error-message" id="dobError">Participant must be between 6 and 30 years old</div>
-                </div>
-
-                <div class="form-group" id="ageDisplay" style="display: none;">
-                    <label>Calculated Age:</label>
-                    <div style="padding: 12px 15px; background: #f8f9fa; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 15px; font-weight: bold; color: #333;">
-                        <span id="calculatedAge">--</span> years old
-                    </div>
-                </div>
-            </div>
-
-            <div id="notificationPreferenceSection" style="display: none;">
-                <div class="section-title">Notification Preference</div>
-
-                <div class="form-group">
-                    <label>
-                        How would they like to receive notifications?<span class="required">*</span>
-                    </label>
+                    <label>Does the caregiver consent to participate in the study? <span class="required">*</span></label>
                     <div class="radio-group">
                         <div class="radio-option">
-                            <input type="radio" id="notifMyCap" name="notificationPreference" value="1">
-                            <label for="notifMyCap">MyCap</label>
-                        </div>
-                        <div class="radio-option">
-                            <input type="radio" id="notifEmail" name="notificationPreference" value="2">
-                            <label for="notifEmail">Email</label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="cgConsentSection" style="display: none;">
-                <div class="section-title">Caregiver Consent</div>
-
-                <div class="form-group">
-                    <label>
-                        Did the caregiver consent to participate in the study?<span class="required">*</span>
-                    </label>
-                    <div class="radio-group">
-                        <div class="radio-option">
-                            <input type="radio" id="cgConsentYes" name="caregiverConsent" value="yes">
+                            <input type="radio" id="cgConsentYes" name="caregiverConsent" value="yes" checked>
                             <label for="cgConsentYes">Yes</label>
                         </div>
                         <div class="radio-option">
                             <input type="radio" id="cgConsentNo" name="caregiverConsent" value="no">
-                            <label for="cgConsentNo">No</label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group" id="cgInfoOption" style="display: none;">
-                    <label>
-                        Would you like to enter caregiver information?
-                    </label>
-                    <div class="radio-group">
-                        <div class="radio-option">
-                            <input type="radio" id="cgInfoYes" name="caregiverInfo" value="yes">
-                            <label for="cgInfoYes">Yes</label>
+                            <label for="cgConsentNo">No (but enter caregiver info)</label>
                         </div>
                         <div class="radio-option">
-                            <input type="radio" id="cgInfoNo" name="caregiverInfo" value="no">
-                            <label for="cgInfoNo">No</label>
+                            <input type="radio" id="cgConsentNone" name="caregiverConsent" value="none">
+                            <label for="cgConsentNone">No caregiver information</label>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div id="cgFields" style="display: none;">
-                <div class="section-title">Parent/Caregiver Information</div>
+            <!-- Caregiver Information -->
+            <div id="caregiverInfoSection" class="hidden">
+                <div class="section-title">👤 Caregiver Information</div>
 
                 <div class="form-group">
-                    <label for="cgFirstName">
-                        Caregiver First Name<span class="required">*</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        id="cgFirstName" 
-                        name="cgFirstName" 
-                        placeholder="Enter caregiver first name"
-                    >
+                    <label for="cgFirstName">Caregiver First Name <span class="required">*</span></label>
+                    <input type="text" id="cgFirstName" name="cgFirstName">
                 </div>
 
                 <div class="form-group">
-                    <label for="cgLastName">
-                        Caregiver Last Name<span class="required">*</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        id="cgLastName" 
-                        name="cgLastName" 
-                        placeholder="Enter caregiver last name"
-                    >
+                    <label for="cgLastName">Caregiver Last Name <span class="required">*</span></label>
+                    <input type="text" id="cgLastName" name="cgLastName">
                 </div>
 
                 <div class="form-group">
-                    <label for="cgEmail">
-                        Caregiver Email<span class="required">*</span>
-                    </label>
-                    <input 
-                        type="email" 
-                        id="cgEmail" 
-                        name="cgEmail" 
-                        placeholder="caregiver@example.com"
-                    >
+                    <label for="cgEmail">Caregiver Email <span class="required">*</span></label>
+                    <input type="email" id="cgEmail" name="cgEmail" placeholder="caregiver@example.com">
                 </div>
 
                 <div class="form-group">
-                    <label for="cgPhone">
-                        Caregiver Phone Number
-                    </label>
-                    <input 
-                        type="tel" 
-                        id="cgPhone" 
-                        name="cgPhone" 
-                        placeholder="555-123-4567 or 5551234567"
-                    >
+                    <label for="cgPhone">Caregiver Phone Number</label>
+                    <input type="tel" id="cgPhone" name="cgPhone" placeholder="(555) 555-5555">
                 </div>
             </div>
 
-            <div id="ptFields" style="display: none;">
-                <div class="section-title">Participant Information</div>
-
-                <div class="form-group">
-                    <label for="ptFirstName">
-                        Participant First Name<span class="required">*</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        id="ptFirstName" 
-                        name="ptFirstName" 
-                        placeholder="Enter participant's first name"
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="ptLastName">
-                        Participant Last Name<span class="required">*</span>
-                    </label>
-                    <input 
-                        type="text" 
-                        id="ptLastName" 
-                        name="ptLastName" 
-                        placeholder="Enter participant's last name"
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="ptEmail">
-                        Participant Email<span id="ptEmailRequired" class="required">*</span>
-                    </label>
-                    <input 
-                        type="email" 
-                        id="ptEmail" 
-                        name="ptEmail" 
-                        placeholder="participant@example.com"
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="ptPhone">
-                        Participant Phone Number
-                    </label>
-                    <input 
-                        type="tel" 
-                        id="ptPhone" 
-                        name="ptPhone" 
-                        placeholder="555-123-4567 or 5551234567"
-                    >
-                </div>
-            </div>
-
-            <button type="submit" class="submit-btn" id="submitBtn">
-                Enroll Participant
-            </button>
-
-            <div id="progressBox" class="progress"></div>
-            <div id="statusMessage" class="status-message"></div>
-            <div id="linksDisplay" class="link-display" style="display: none;"></div>
+            <button type="submit" class="submit-btn">Create Records</button>
         </form>
+
+        <div class="progress" id="progressBox"></div>
+        <div class="status-message" id="statusMessage"></div>
+        <div class="link-display" id="linksDisplay" style="display: none;"></div>
     </div>
 
     <script>
-        // ========================================================================
-        // CONFIGURATION - Only non-sensitive values here
-        // ========================================================================
         const REDCAP_CONFIG = {
-            // REDCap API URL
             apiUrl: 'https://redcap.ctsc.weill.cornell.edu/redcap_protocols/api/',
-
-            // Event names - now 5 separate arms
+            apiToken: '{{ YOUR_API_TOKEN_HERE }}', // Replace with your actual API token
             arms: {
-                caregiver: 'baseline_arm_1',      // record_type 1
-                adult: 'baseline_arm_2',          // record_type 2
-                child1217: 'baseline_arm_3',      // record_type 3 (updated to 12-17)
-                child67: 'baseline_arm_4',        // record_type 4
-                child811: 'baseline_arm_6'        // record_type 6 (new: 8-11)
+                patient: 'baseline_arm_2',
+                caregiver: 'baseline_arm_1'
             },
-            
-            // Field names
             fields: {
-                cgEmail: 'cg_email',
-                cgPhone: 'cg_phone',
+                ptFirstName: 'pt_first_name',
+                ptLastName: 'pt_last_name',
+                ptDob: 'pt_dob',
+                ptAge: 'pt_age',
                 ptEmail: 'pt_email',
                 ptPhone: 'pt_phone',
                 cgFirstName: 'cg_first_name',
                 cgLastName: 'cg_last_name',
-                ptFirstName: 'pt_first_name',
-                ptLastName: 'pt_last_name',
-                ptAge: 'pt_age',
-                ptDob: 'pt_dob',
+                cgEmail: 'cg_email',
+                cgPhone: 'cg_phone',
                 recordType: 'record_type',
                 notificationPreference: 'notification_preference',
                 recordStatus: 'record_status'
             }
         };
-        // ========================================================================
+
+        // Progress tracking
+        let currentStep = 0;
+        const stepsAdult = [
+            '1. Creating participant record...',
+            '2. Complete!'
+        ];
+        const stepsMinorWithCG = [
+            '1. Creating participant record...',
+            '2. Creating caregiver record...',
+            '3. Complete!'
+        ];
+        const stepsMinorNoCG = [
+            '1. Creating participant record...',
+            '2. Complete!'
+        ];
 
         const form = document.getElementById('enrollmentForm');
-        const submitBtn = document.getElementById('submitBtn');
         const statusMessage = document.getElementById('statusMessage');
-        const progressBox = document.getElementById('progressBox');
         const linksDisplay = document.getElementById('linksDisplay');
-        const cgFields = document.getElementById('cgFields');
-        const ptFields = document.getElementById('ptFields');
-        const cgConsentSection = document.getElementById('cgConsentSection');
-        const dobError = document.getElementById('dobError');
-        const newPatientFields = document.getElementById('newPatientFields');
-        const existingPatientFields = document.getElementById('existingPatientFields');
+        const progressBox = document.getElementById('progressBox');
 
-        // Set max date for DOB to today (timezone-aware)
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        const todayFormatted = `${year}-${month}-${day}`;
-        document.getElementById('ptDob').max = todayFormatted;
+        // Form elements
+        const ptDobInput = document.getElementById('ptDob');
+        const caregiverConsentSection = document.getElementById('caregiverConsentSection');
+        const caregiverInfoSection = document.getElementById('caregiverInfoSection');
+        const cgConsentRadios = document.querySelectorAll('input[name="caregiverConsent"]');
 
-        // Calculate age from date of birth (timezone-aware)
+        // Dynamic form visibility based on age
+        ptDobInput.addEventListener('change', function() {
+            const dob = this.value;
+            if (!dob) {
+                document.getElementById('ageDisplay').style.display = 'none';
+                return;
+            }
+
+            const age = calculateAge(dob);
+            
+            // Display the calculated age
+            document.getElementById('calculatedAge').textContent = age;
+            document.getElementById('ageDisplay').style.display = 'block';
+            
+            const isMinor = age < 18;
+
+            if (isMinor) {
+                caregiverConsentSection.classList.remove('hidden');
+                // Make caregiver consent required for minors
+                cgConsentRadios.forEach(radio => {
+                    radio.required = true;
+                });
+                // Set default to "yes" and show caregiver info section
+                document.getElementById('cgConsentYes').checked = true;
+                caregiverInfoSection.classList.remove('hidden');
+                // Make caregiver fields required since default is "yes"
+                document.getElementById('cgFirstName').required = true;
+                document.getElementById('cgLastName').required = true;
+                document.getElementById('cgEmail').required = true;
+            } else {
+                caregiverConsentSection.classList.add('hidden');
+                caregiverInfoSection.classList.add('hidden');
+                cgConsentRadios.forEach(radio => {
+                    radio.required = false;
+                    radio.checked = false;
+                });
+                // Clear and unrequire caregiver fields
+                clearCaregiverFields();
+            }
+        });
+
+        // Show/hide caregiver info based on consent
+        cgConsentRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                const showCgInfo = this.value === 'yes' || this.value === 'no';
+                
+                if (showCgInfo) {
+                    caregiverInfoSection.classList.remove('hidden');
+                    // Make caregiver fields required
+                    document.getElementById('cgFirstName').required = true;
+                    document.getElementById('cgLastName').required = true;
+                    document.getElementById('cgEmail').required = true;
+                } else {
+                    // "none" option - hide caregiver info
+                    caregiverInfoSection.classList.add('hidden');
+                    clearCaregiverFields();
+                }
+            });
+        });
+
+        function clearCaregiverFields() {
+            const cgFields = ['cgFirstName', 'cgLastName', 'cgEmail', 'cgPhone'];
+            cgFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                field.value = '';
+                field.required = false;
+            });
+        }
+
         function calculateAge(dob) {
-            const birthDate = new Date(dob + 'T00:00:00'); // Treat as local midnight
+            if (!dob) return 0;
+            
+            // Parse the date string as local date (not UTC)
+            // The date input gives us YYYY-MM-DD in local timezone
+            const [year, month, day] = dob.split('-').map(num => parseInt(num, 10));
+            const birthDate = new Date(year, month - 1, day); // month is 0-indexed
+            
+            // Get today's date in local timezone
             const today = new Date();
             
-            // Get local date components
-            const todayYear = today.getFullYear();
-            const todayMonth = today.getMonth();
-            const todayDay = today.getDate();
+            // Calculate age
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
             
-            const birthYear = birthDate.getFullYear();
-            const birthMonth = birthDate.getMonth();
-            const birthDay = birthDate.getDate();
-            
-            let age = todayYear - birthYear;
-            
-            // Check if birthday hasn't occurred yet this year
-            if (todayMonth < birthMonth || (todayMonth === birthMonth && todayDay < birthDay)) {
+            // Adjust if birthday hasn't occurred yet this year
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
                 age--;
             }
             
             return age;
         }
 
-        // Show/hide fields based on patient type
-        document.querySelectorAll('input[name="patientType"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                if (this.value === 'new') {
-                    newPatientFields.style.display = 'block';
-                    existingPatientFields.style.display = 'none';
-                    document.getElementById('notificationPreferenceSection').style.display = 'block';
-                    document.getElementById('ptDob').required = true;
-                    document.getElementById('existingRecordId').required = false;
-                    document.getElementById('existingEmail').required = false;
-                    document.getElementById('notifMyCap').required = true;
-                    document.getElementById('notifEmail').required = true;
-                    
-                    // Hide other sections until DOB is entered
-                    ptFields.style.display = 'none';
-                    cgFields.style.display = 'none';
-                    cgConsentSection.style.display = 'none';
-                } else {
-                    newPatientFields.style.display = 'none';
-                    existingPatientFields.style.display = 'block';
-                    document.getElementById('notificationPreferenceSection').style.display = 'none';
-                    document.getElementById('ptDob').required = false;
-                    document.getElementById('existingRecordId').required = true;
-                    document.getElementById('existingEmail').required = true;
-                    document.getElementById('notifMyCap').required = false;
-                    document.getElementById('notifEmail').required = false;
-                    
-                    // Hide other sections for existing patients
-                    ptFields.style.display = 'none';
-                    cgFields.style.display = 'none';
-                    cgConsentSection.style.display = 'none';
-                    document.getElementById('ageDisplay').style.display = 'none';
-                }
-            });
-        });
-
-        // Handle DOB input for new patients
-        document.getElementById('ptDob').addEventListener('change', function() {
-            if (!this.value) {
-                document.getElementById('ageDisplay').style.display = 'none';
-                ptFields.style.display = 'none';
-                cgFields.style.display = 'none';
-                cgConsentSection.style.display = 'none';
-                return;
-            }
-
-            const age = calculateAge(this.value);
-            
-            // Validate age range
-            if (age < 6 || age > 30) {
-                dobError.style.display = 'block';
-                this.setCustomValidity('Participant must be between 6 and 30 years old');
-                document.getElementById('ageDisplay').style.display = 'none';
-                ptFields.style.display = 'none';
-                cgFields.style.display = 'none';
-                cgConsentSection.style.display = 'none';
-            } else {
-                dobError.style.display = 'none';
-                this.setCustomValidity('');
-                
-                // Display calculated age
-                document.getElementById('calculatedAge').textContent = age;
-                document.getElementById('ageDisplay').style.display = 'block';
-                
-                const isMinor = age < 18;
-                
-                ptFields.style.display = 'block';
-                
-                // Show caregiver consent section for minors
-                if (isMinor) {
-                    cgConsentSection.style.display = 'block';
-                    // Required consent selection for minors
-                    document.getElementById('cgConsentYes').required = true;
-                    document.getElementById('cgConsentNo').required = true;
-                } else {
-                    cgConsentSection.style.display = 'none';
-                    cgFields.style.display = 'none';
-                    document.getElementById('cgConsentYes').required = false;
-                    document.getElementById('cgConsentNo').required = false;
-                    // Clear consent selection
-                    document.getElementById('cgConsentYes').checked = false;
-                    document.getElementById('cgConsentNo').checked = false;
-                }
-                
-                // Set required fields based on age
-                document.getElementById('ptFirstName').required = true;
-                document.getElementById('ptLastName').required = true;
-                document.getElementById('ptEmail').required = !isMinor;
-                document.getElementById('ptEmailRequired').style.display = isMinor ? 'none' : 'inline';
-            }
-        });
-
-        // Show/hide caregiver fields based on consent
-        document.querySelectorAll('input[name="caregiverConsent"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                if (this.value === 'yes') {
-                    // Consent given - show fields immediately
-                    document.getElementById('cgInfoOption').style.display = 'none';
-                    cgFields.style.display = 'block';
-                    document.getElementById('cgFirstName').required = true;
-                    document.getElementById('cgLastName').required = true;
-                    document.getElementById('cgEmail').required = true;
-                    // Clear the caregiver info radio selection
-                    document.getElementById('cgInfoYes').checked = false;
-                    document.getElementById('cgInfoNo').checked = false;
-                } else {
-                    // Consent not given - show option to enter info
-                    document.getElementById('cgInfoOption').style.display = 'block';
-                    cgFields.style.display = 'none';
-                    document.getElementById('cgFirstName').required = false;
-                    document.getElementById('cgLastName').required = false;
-                    document.getElementById('cgEmail').required = false;
-                }
-            });
-        });
-
-        // Show/hide caregiver fields based on info entry preference (when consent is "no")
-        document.querySelectorAll('input[name="caregiverInfo"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                if (this.value === 'yes') {
-                    cgFields.style.display = 'block';
-                    // Fields are optional when consent is "no"
-                    document.getElementById('cgFirstName').required = false;
-                    document.getElementById('cgLastName').required = false;
-                    document.getElementById('cgEmail').required = false;
-                } else {
-                    cgFields.style.display = 'none';
-                }
-            });
-        });
-
-        let currentStep = 0;
-        const stepsMinorWithCG = [
-            'Getting existing records from all arms...',
-            'Calculating next ID...',
-            'Creating participant record...',
-            'Creating caregiver record...',
-            'Complete!'
-        ];
-        
-        const stepsMinorNoCG = [
-            'Getting existing records from all arms...',
-            'Calculating next ID...',
-            'Creating participant record...',
-            'Complete!'
-        ];
-        
-        const stepsAdult = [
-            'Getting existing records from all arms...',
-            'Calculating next ID...',
-            'Creating participant record...',
-            'Complete!'
-        ];
-
-        const stepsTransition = [
-            'Finding existing record...',
-            'Creating record in new arm...',
-            'Complete!'
-        ];
-
-        let isSubmitting = false;
-
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            if (isSubmitting) {
-                return;
-            }
+            const submitButton = form.querySelector('.submit-btn');
+            submitButton.disabled = true;
             
-            isSubmitting = true;
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Processing...';
+            statusMessage.style.display = 'none';
             linksDisplay.style.display = 'none';
             
-            showProgress();
+            // Get API token from form
+            const apiToken = document.getElementById('apiToken').value.trim();
             
-            const formData = getFormData();
-            
-            try {
-                const result = await enrollParticipant(formData);
+            const formData = {
+                ptFirstName: document.getElementById('ptFirstName').value.trim(),
+                ptLastName: document.getElementById('ptLastName').value.trim(),
+                dob: document.getElementById('ptDob').value,
+                age: calculateAge(document.getElementById('ptDob').value),
+                ptEmail: document.getElementById('ptEmail').value.trim(),
+                ptPhone: document.getElementById('ptPhone').value.trim(),
+                notificationPreference: document.querySelector('input[name="notificationPreference"]:checked').value,
+                isAdult: calculateAge(document.getElementById('ptDob').value) >= 18,
+                caregiverConsent: null,
+                collectCgInfo: false,
+                cgFirstName: '',
+                cgLastName: '',
+                cgEmail: '',
+                cgPhone: ''
+            };
+
+            // Handle caregiver info for minors
+            if (!formData.isAdult) {
+                formData.caregiverConsent = document.querySelector('input[name="caregiverConsent"]:checked')?.value;
+                formData.collectCgInfo = formData.caregiverConsent === 'yes' || formData.caregiverConsent === 'no';
                 
-                if (result.success) {
-                    if (result.isTransition) {
-                        showStatus('success', `✓ Success! Patient ${result.oldRecordId} transitioned to ${result.newRecordId} from ${result.fromArm} to ${result.toArm}!`);
-                    } else if (result.isAdult) {
-                        showStatus('success', `✓ Success! Participant ${result.ptId} enrolled successfully!`);
-                    } else if (result.cgCreated) {
-                        showStatus('success', `✓ Success! Family ${result.recordNumber} enrolled successfully!`);
-                    } else {
-                        showStatus('success', `✓ Success! Participant ${result.ptId} enrolled successfully (caregiver did not consent)!`);
-                    }
-                    displayLinks(result);
-                    // Reset form but keep the API token
-                    const apiToken = document.getElementById('apiToken').value;
-                    setTimeout(() => {
-                        form.reset();
-                        document.getElementById('apiToken').value = apiToken;
-                    }, 3000);
-                } else {
-                    showStatus('error', `✗ Error: ${result.error}`);
+                if (formData.collectCgInfo) {
+                    formData.cgFirstName = document.getElementById('cgFirstName').value.trim();
+                    formData.cgLastName = document.getElementById('cgLastName').value.trim();
+                    formData.cgEmail = document.getElementById('cgEmail').value.trim();
+                    formData.cgPhone = document.getElementById('cgPhone').value.trim();
                 }
-            } catch (error) {
-                showStatus('error', `✗ Failed: ${error.message}`);
-            } finally {
-                isSubmitting = false;
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Enroll Participant';
+                // If caregiverConsent is "none", collectCgInfo stays false and no caregiver info is collected
+            }
+
+            try {
+                showProgress();
+                showStatus('processing', 'Creating records...');
+                
+                const result = await createRecords(apiToken, formData);
+                
                 hideProgress();
+                showStatus('success', '✓ Records created successfully!');
+                displayLinks(result);
+                form.reset();
+                caregiverConsentSection.classList.add('hidden');
+                caregiverInfoSection.classList.add('hidden');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                hideProgress();
+                showStatus('error', `✗ Error: ${error.message}`);
+            } finally {
+                submitButton.disabled = false;
             }
         });
 
-        function formatPhoneNumber(phone) {
-            if (!phone) {
-                return '';
-            }
-            
-            // Remove all non-digit characters
-            const digits = phone.replace(/\D/g, '');
-            
-            // Return empty string if no digits or less than 10 digits
-            if (digits.length === 0) {
-                return '';
-            }
-            
-            // Return exactly 10 digits (take last 10 if more were provided)
-            if (digits.length >= 10) {
-                return digits.slice(-10);
-            }
-            
-            // If less than 10 digits, return empty string to avoid validation error
-            return '';
-        }
-
-        function getFormData() {
-            const patientType = document.querySelector('input[name="patientType"]:checked')?.value;
-            
-            if (patientType === 'existing') {
-                return {
-                    apiToken: document.getElementById('apiToken').value.trim(),
-                    patientType: 'existing',
-                    existingRecordId: document.getElementById('existingRecordId').value.trim(),
-                    existingEmail: document.getElementById('existingEmail').value.trim()
-                };
-            }
-            
-            // New patient
-            const notificationPreference = document.querySelector('input[name="notificationPreference"]:checked')?.value || '';
-            const dob = document.getElementById('ptDob').value;
-            const age = calculateAge(dob);
-            const isAdult = age >= 18;
-            
-            let caregiverConsent = null;
-            if (!isAdult) {
-                const consentRadio = document.querySelector('input[name="caregiverConsent"]:checked');
-                caregiverConsent = consentRadio ? consentRadio.value : null;
-            }
-            
-            // Check if caregiver info should be collected even without consent
-            const caregiverInfoChoice = document.querySelector('input[name="caregiverInfo"]:checked')?.value;
-            const collectCgInfo = caregiverConsent === 'yes' || (caregiverConsent === 'no' && caregiverInfoChoice === 'yes');
-            
-            const cgPhone = formatPhoneNumber(document.getElementById('cgPhone').value.trim());
-            const ptPhone = formatPhoneNumber(document.getElementById('ptPhone').value.trim());
-            const cgEmail = document.getElementById('cgEmail').value.trim();
-            let ptEmail = document.getElementById('ptEmail').value.trim();
-            
-            // If participant is under 18 and pt_email is blank, use cg_email (only if cg info was collected)
-            if (!isAdult && !ptEmail && cgEmail && collectCgInfo) {
-                ptEmail = cgEmail;
-            }
-            
-            return {
-                apiToken: document.getElementById('apiToken').value.trim(),
-                patientType: 'new',
-                dob: dob,
-                age: age,
-                isAdult: isAdult,
-                notificationPreference: notificationPreference,
-                caregiverConsent: caregiverConsent,
-                collectCgInfo: collectCgInfo,
-                cgFirstName: document.getElementById('cgFirstName').value.trim(),
-                cgLastName: document.getElementById('cgLastName').value.trim(),
-                cgEmail: cgEmail,
-                cgPhone: cgPhone,
-                ptFirstName: document.getElementById('ptFirstName').value.trim(),
-                ptLastName: document.getElementById('ptLastName').value.trim(),
-                ptEmail: ptEmail,
-                ptPhone: ptPhone
-            };
-        }
-
-        async function enrollParticipant(formData) {
-            try {
-                if (formData.patientType === 'existing') {
-                    return await transitionExistingPatient(formData);
-                } else if (formData.isAdult) {
-                    return await enrollAdult(formData);
-                } else {
-                    return await enrollFamily(formData);
-                }
-            } catch (error) {
-                console.error('Enrollment error:', error);
-                return {
-                    success: false,
-                    error: error.message
-                };
-            }
-        }
-
-        async function transitionExistingPatient(formData) {
-            // Find existing record
+        async function createRecords(apiToken, formData) {
+            // Always create new records for new patients
             updateProgress(0);
-            const existingRecord = await findExistingRecord(formData.apiToken, formData.existingRecordId);
-            
-            if (!existingRecord) {
-                throw new Error(`Record ${formData.existingRecordId} not found`);
-            }
-            
-            // Determine current arm and target arm
-            let currentArm = existingRecord.redcap_event_name;
-            let targetArm = null;
-            let targetRecordType = null;
-            let newRecordId = formData.existingRecordId + '-2';
-            
-            // If in Arm 3 (child 12-17), transition to Arm 2 (adult)
-            if (currentArm === REDCAP_CONFIG.arms.child1217) {
-                targetArm = REDCAP_CONFIG.arms.adult;
-                targetRecordType = 2;
-            }
-            // If in Arm 6 (child 8-11), transition to Arm 3 (child 12-17)
-            else if (currentArm === REDCAP_CONFIG.arms.child811) {
-                targetArm = REDCAP_CONFIG.arms.child1217;
-                targetRecordType = 3;
-            }
-            // If in Arm 4 (child 6-7), transition to Arm 6 (child 8-11)
-            else if (currentArm === REDCAP_CONFIG.arms.child67) {
-                targetArm = REDCAP_CONFIG.arms.child811;
-                targetRecordType = 6;
-            }
-            // Otherwise, invalid transition
-            else {
-                throw new Error(`Invalid transition: Record is in ${currentArm}. Can only transition from Arm 3, Arm 4, or Arm 6.`);
-            }
-            
-            // Create new record in target arm
-            updateProgress(1);
-            await createTransitionRecord(
-                formData.apiToken, 
-                newRecordId, 
-                existingRecord, 
-                targetArm, 
-                targetRecordType,
-                formData.existingEmail
-            );
-            
-            updateProgress(2);
-            
-            return {
-                success: true,
-                isTransition: true,
-                oldRecordId: formData.existingRecordId,
-                newRecordId: newRecordId,
-                fromArm: currentArm === REDCAP_CONFIG.arms.child1217 ? 'Arm 3 (12-17)' : 
-                         currentArm === REDCAP_CONFIG.arms.child811 ? 'Arm 6 (8-11)' : 'Arm 4 (6-7)',
-                toArm: targetArm === REDCAP_CONFIG.arms.adult ? 'Arm 2 (18+)' : 
-                       targetArm === REDCAP_CONFIG.arms.child1217 ? 'Arm 3 (12-17)' : 'Arm 6 (8-11)'
-            };
-        }
+            const recordNumber = await getNextRecordNumber(apiToken);
+            // Format record number with zero-padding (e.g., 0001)
+            const paddedRecordNumber = String(recordNumber).padStart(4, '0');
+            const ptId = `${paddedRecordNumber}-PT`;
+            const cgId = `${paddedRecordNumber}-CG`;
 
-        async function findExistingRecord(apiToken, recordId) {
-            const body = new URLSearchParams({
-                token: apiToken,
-                content: 'record',
-                format: 'json',
-                type: 'flat',
-                'records[0]': recordId,
-                returnFormat: 'json'
-            });
+            if (formData.isAdult) {
+                // Adult patient - create PT record in baseline_arm_2
+                const ptRecordType = 2; // Adult
+                await createPtRecord(apiToken, ptId, formData, ptRecordType, REDCAP_CONFIG.arms.patient);
+                updateProgress(1);
 
-            const response = await fetch(REDCAP_CONFIG.apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString()
-            });
+                return {
+                    recordNumber,
+                    ptId,
+                    isAdult: true,
+                    cgCreated: false
+                };
+            } else {
+                // Minor patient - create PT record in baseline_arm_2
+                const ptRecordType = 3; // Child 12-17
+                const createCGRecord = formData.caregiverConsent === 'yes';
+                
+                // Always include caregiver info in PT record if collected
+                await createPtRecord(apiToken, ptId, formData, ptRecordType, REDCAP_CONFIG.arms.patient, formData.collectCgInfo);
+                updateProgress(1);
 
-            if (!response.ok) {
-                throw new Error(`Failed to find record: ${response.status}`);
-            }
+                if (createCGRecord) {
+                    // Create separate CG record in baseline_arm_1
+                    await createCgRecord(apiToken, cgId, formData, REDCAP_CONFIG.arms.caregiver);
+                    updateProgress(2);
 
-            const records = await response.json();
-            
-            if (!Array.isArray(records) || records.length === 0) {
-                return null;
-            }
-            
-            // Return the first record (should only be one with this record_id)
-            return records[0];
-        }
+                    return {
+                        recordNumber,
+                        ptId,
+                        cgId,
+                        isAdult: false,
+                        cgCreated: true
+                    };
+                } else {
+                    // No separate CG record, but caregiver info is in PT record
+                    updateProgress(2);
 
-        async function createTransitionRecord(apiToken, recordId, existingData, targetArm, targetRecordType, email) {
-            const record = [{
-                record_id: recordId,
-                redcap_event_name: targetArm,
-                [REDCAP_CONFIG.fields.recordType]: targetRecordType,
-                [REDCAP_CONFIG.fields.ptEmail]: email,
-                [REDCAP_CONFIG.fields.recordStatus]: 2  // 2 = Existing patient
-            }];
-            
-            // Copy data from existing record
-            const fieldsToCopy = [
-                REDCAP_CONFIG.fields.ptFirstName,
-                REDCAP_CONFIG.fields.ptLastName,
-                REDCAP_CONFIG.fields.ptDob,
-                REDCAP_CONFIG.fields.ptPhone,
-                REDCAP_CONFIG.fields.cgFirstName,
-                REDCAP_CONFIG.fields.cgLastName,
-                REDCAP_CONFIG.fields.cgEmail,
-                REDCAP_CONFIG.fields.cgPhone,
-                REDCAP_CONFIG.fields.notificationPreference,
-                'tx_placement',
-                'therapist_name'
-            ];
-            
-            fieldsToCopy.forEach(field => {
-                if (existingData[field] !== undefined && existingData[field] !== null && existingData[field] !== '') {
-                    record[0][field] = existingData[field];
+                    return {
+                        recordNumber,
+                        ptId,
+                        isAdult: false,
+                        cgCreated: false,
+                        caregiverInfoProvided: formData.collectCgInfo
+                    };
                 }
-            });
-            
-            // Recalculate age from pt_dob
-            if (existingData[REDCAP_CONFIG.fields.ptDob]) {
-                const age = calculateAge(existingData[REDCAP_CONFIG.fields.ptDob]);
-                record[0][REDCAP_CONFIG.fields.ptAge] = age;
             }
+        }
 
+        async function getNextRecordNumber(apiToken) {
             const body = new URLSearchParams({
                 token: apiToken,
                 content: 'record',
                 format: 'json',
                 type: 'flat',
-                overwriteBehavior: 'normal',
-                data: JSON.stringify(record),
-                returnFormat: 'json'
+                fields: 'record_id'
             });
 
             const response = await fetch(REDCAP_CONFIG.apiUrl, {
@@ -1059,164 +666,30 @@
 
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(`Failed to create transition record: ${errorText}`);
-            }
-        }
-
-        async function enrollAdult(formData) {
-            // STEP 1: Get next record ID from all arms
-            updateProgress(0);
-            const nextRecordNumber = await getNextRecordNumber(formData.apiToken);
-            
-            if (!nextRecordNumber) {
-                throw new Error('Could not determine next record ID');
-            }
-            
-            // STEP 2: Format ID
-            updateProgress(1);
-            const ptId = String(nextRecordNumber).padStart(4, '0') + '-PT';
-            
-            console.log(`Creating Adult Participant Record ${nextRecordNumber}: PT=${ptId}`);
-            
-            // Determine record_type and arm: 2 if pt_age >= 18
-            const recordType = 2;
-            const arm = REDCAP_CONFIG.arms.adult;
-            
-            // STEP 3: Create participant record
-            updateProgress(2);
-            await createPtRecord(formData.apiToken, ptId, formData, recordType, arm);
-            
-            // STEP 4: Done!
-            updateProgress(3);
-            
-            return {
-                success: true,
-                isAdult: true,
-                recordNumber: nextRecordNumber,
-                ptId: ptId
-            };
-        }
-
-        async function enrollFamily(formData) {
-            // STEP 1: Get next record ID from all arms
-            updateProgress(0);
-            const nextRecordNumber = await getNextRecordNumber(formData.apiToken);
-            
-            if (!nextRecordNumber) {
-                throw new Error('Could not determine next record ID');
-            }
-            
-            // STEP 2: Format IDs
-            updateProgress(1);
-            const ptId = String(nextRecordNumber).padStart(4, '0') + '-PT';
-            const cgId = String(nextRecordNumber).padStart(4, '0') + '-CG';
-            
-            // Determine if we should create CG record (only if consented)
-            const createCG = formData.caregiverConsent === 'yes';
-            
-            // Determine if we should include CG info in PT record
-            const includeCgInfoInPt = formData.collectCgInfo;
-            
-            if (createCG) {
-                console.log(`Creating Family ${nextRecordNumber}: PT=${ptId}, CG=${cgId}`);
-            } else if (includeCgInfoInPt) {
-                console.log(`Creating Participant Only ${nextRecordNumber}: PT=${ptId} (caregiver did not consent but info provided)`);
-            } else {
-                console.log(`Creating Participant Only ${nextRecordNumber}: PT=${ptId} (caregiver did not consent)`);
-            }
-            
-            // Determine record_type and arm based on age ranges
-            let recordType, ptArm, cgArm;
-            if (formData.age >= 12) {
-                // Ages 12-17: Arm 3, record_type 3
-                recordType = 3;
-                ptArm = REDCAP_CONFIG.arms.child1217;
-                cgArm = REDCAP_CONFIG.arms.caregiver;
-            } else if (formData.age >= 8) {
-                // Ages 8-11: Arm 6, record_type 6
-                recordType = 6;
-                ptArm = REDCAP_CONFIG.arms.child811;
-                cgArm = REDCAP_CONFIG.arms.caregiver;
-            } else {
-                // Ages 6-7: Arm 4, record_type 4
-                recordType = 4;
-                ptArm = REDCAP_CONFIG.arms.child67;
-                cgArm = REDCAP_CONFIG.arms.caregiver;
-            }
-            
-            // STEP 3: Create participant record
-            updateProgress(2);
-            await createPtRecord(formData.apiToken, ptId, formData, recordType, ptArm, includeCgInfoInPt);
-            
-            // STEP 4: Create caregiver record (only if consented)
-            if (createCG) {
-                updateProgress(3);
-                await createCgRecord(formData.apiToken, cgId, formData, cgArm);
-                
-                // STEP 5: Done!
-                updateProgress(4);
-                
-                return {
-                    success: true,
-                    isAdult: false,
-                    cgCreated: true,
-                    recordNumber: nextRecordNumber,
-                    ptId: ptId,
-                    cgId: cgId
-                };
-            } else {
-                // STEP 4: Done (no CG record)
-                updateProgress(3);
-                
-                return {
-                    success: true,
-                    isAdult: false,
-                    cgCreated: false,
-                    recordNumber: nextRecordNumber,
-                    ptId: ptId,
-                    caregiverInfoProvided: includeCgInfoInPt
-                };
-            }
-        }
-
-        async function getNextRecordNumber(apiToken) {
-            const body = new URLSearchParams({
-                token: apiToken,
-                content: 'record',
-                format: 'json',
-                type: 'flat',
-                'fields[0]': 'record_id',
-                returnFormat: 'json'
-            });
-
-            const response = await fetch(REDCAP_CONFIG.apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString()
-            });
-
-            if (!response.ok) {
-                throw new Error(`Failed to get records: ${response.status}`);
+                throw new Error(`Failed to fetch existing records: ${errorText}`);
             }
 
-            const records = await response.json();
+            const responseText = await response.text();
             
+            // Handle empty response (no records in project)
+            if (!responseText || responseText.trim() === '' || responseText.trim() === '[]') {
+                return 1; // Start with record number 1 if project is empty
+            }
+            
+            let records;
+            try {
+                records = JSON.parse(responseText);
+            } catch (e) {
+                throw new Error('Failed to parse records response from REDCap');
+            }
+            
+            // Handle empty array
             if (!Array.isArray(records) || records.length === 0) {
                 return 1;
             }
-
-            // Find all records from ALL arms (ending with -PT or -CG)
-            const allRecords = records.filter(r => 
-                r.record_id && 
-                (r.record_id.endsWith('-PT') || r.record_id.endsWith('-CG'))
-            );
             
-            if (allRecords.length === 0) {
-                return 1;
-            }
-
-            // Extract record numbers from all types across all arms
-            const recordNumbers = allRecords
+            // Extract numeric parts from record IDs (format: NUMBER-PT or NUMBER-CG)
+            const recordNumbers = records
                 .map(r => {
                     // Remove the suffix (-PT or -CG) and parse the number
                     const match = r.record_id.match(/^(\d+)-(PT|CG)$/);
@@ -1337,15 +810,6 @@
         }
 
         function showProgress() {
-            const patientType = document.querySelector('input[name="patientType"]:checked')?.value;
-            
-            if (patientType === 'existing') {
-                currentStep = 0;
-                progressBox.style.display = 'block';
-                updateProgressDisplay(false, false, true);
-                return;
-            }
-            
             const dob = document.getElementById('ptDob').value;
             const age = calculateAge(dob);
             const isAdult = age >= 18;
@@ -1354,7 +818,7 @@
             
             currentStep = 0;
             progressBox.style.display = 'block';
-            updateProgressDisplay(isAdult, createCG, false);
+            updateProgressDisplay(isAdult, createCG);
         }
 
         function hideProgress() {
@@ -1363,27 +827,18 @@
 
         function updateProgress(step) {
             currentStep = step;
-            const patientType = document.querySelector('input[name="patientType"]:checked')?.value;
-            
-            if (patientType === 'existing') {
-                updateProgressDisplay(false, false, true);
-                return;
-            }
-            
             const dob = document.getElementById('ptDob').value;
             const age = calculateAge(dob);
             const isAdult = age >= 18;
             const caregiverConsent = !isAdult ? document.querySelector('input[name="caregiverConsent"]:checked')?.value : null;
             const createCG = !isAdult && caregiverConsent === 'yes';
             
-            updateProgressDisplay(isAdult, createCG, false);
+            updateProgressDisplay(isAdult, createCG);
         }
 
-        function updateProgressDisplay(isAdult, createCG, isTransition) {
+        function updateProgressDisplay(isAdult, createCG) {
             let steps;
-            if (isTransition) {
-                steps = stepsTransition;
-            } else if (isAdult) {
+            if (isAdult) {
                 steps = stepsAdult;
             } else if (createCG) {
                 steps = stepsMinorWithCG;
@@ -1411,17 +866,7 @@
         }
 
         function displayLinks(result) {
-            if (result.isTransition) {
-                linksDisplay.innerHTML = `
-                    <h3>📋 Transition Complete!</h3>
-                    <p style="margin-bottom: 15px;">
-                        <strong>Original Record:</strong> ${result.oldRecordId}<br>
-                        <strong>New Record ID:</strong> ${result.newRecordId}<br>
-                        <strong>Transitioned from:</strong> ${result.fromArm}<br>
-                        <strong>Transitioned to:</strong> ${result.toArm}
-                    </p>
-                `;
-            } else if (result.isAdult) {
+            if (result.isAdult) {
                 linksDisplay.innerHTML = `
                     <h3>📋 Enrollment Complete!</h3>
                     <p style="margin-bottom: 15px;">
@@ -1440,9 +885,12 @@
                 `;
             } else {
                 const hasCargiverInfo = result.caregiverInfoProvided;
-                const message = hasCargiverInfo 
-                    ? 'Note: Caregiver information included in participant record (caregiver did not consent to participate)' 
-                    : 'Note: Caregiver record not created (caregiver did not consent)';
+                let message;
+                if (hasCargiverInfo) {
+                    message = 'Note: Caregiver information included in participant record (caregiver did not consent to participate)';
+                } else {
+                    message = 'Note: No caregiver information collected';
+                }
                 
                 linksDisplay.innerHTML = `
                     <h3>📋 Enrollment Complete!</h3>
