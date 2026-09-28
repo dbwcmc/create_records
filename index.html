@@ -81,6 +81,18 @@
             font-family: inherit;
         }
 
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s;
+            font-family: inherit;
+            background: white;
+        }
+
+        select:focus,
         input:focus {
             outline: none;
             border-color: #B31B1B;
@@ -277,6 +289,15 @@
                 <input type="password" id="apiToken" name="apiToken" required placeholder="Enter your REDCap API token">
             </div>
 
+            <div class="form-group">
+                <label for="project">Project <span class="required">*</span></label>
+                <select id="project" name="project" required>
+                    <option value="">-- Select project --</option>
+                    <option value="Research">Research</option>
+                    <option value="Clinical">Clinical</option>
+                </select>
+            </div>
+
             <!-- Participant Information -->
             <div class="section-title">👤 Participant Information</div>
 
@@ -312,20 +333,17 @@
                 <input type="tel" id="ptPhone" name="ptPhone" placeholder="(555) 555-5555">
             </div>
 
-            <!-- Notification Preference -->
             <div class="form-group">
-                <label>How would they like to receive notifications? <span class="required">*</span></label>
-                <div class="radio-group">
-                    <div class="radio-option">
-                        <input type="radio" id="notifMyCap" name="notificationPreference" value="1" required>
-                        <label for="notifMyCap">MyCap</label>
-                    </div>
-                    <div class="radio-option">
-                        <input type="radio" id="notifEmail" name="notificationPreference" value="2">
-                        <label for="notifEmail">Email</label>
-                    </div>
-                </div>
+                <label for="clinicPlacement">Clinic Placement</label>
+                <select id="clinicPlacement" name="clinicPlacement">
+                    <option value=""></option>
+                    <option value="PHP">PHP</option>
+                    <option value="IOP">IOP</option>
+                    <option value="B2C">B2C</option>
+                    <option value="Outpatient">Outpatient</option>
+                </select>
             </div>
+
 
             <!-- Caregiver Consent (shown for minors) -->
             <div id="caregiverConsentSection" class="hidden">
@@ -384,9 +402,23 @@
     </div>
 
     <script>
+        // ==================================================================
+        // ENTER PROJECT IDs HERE
+        // Use the "pid=" number from each project's REDCap URL, e.g. 12345.
+        // The token entered in the form must belong to the project selected
+        // in the Project dropdown, or no records are created.
+        // ==================================================================
+        const RESEARCH_PROJECT_ID = 9392;  // e.g. 12345
+        const CLINICAL_PROJECT_ID = 9452;  // e.g. 67890
+        // ==================================================================
+
         const REDCAP_CONFIG = {
             apiUrl: 'https://redcap.ctsc.weill.cornell.edu/redcap_protocols/api/',
             apiToken: '{{ YOUR_API_TOKEN_HERE }}', // Replace with your actual API token
+            projects: {
+                Research: { projectId: RESEARCH_PROJECT_ID },
+                Clinical: { projectId: CLINICAL_PROJECT_ID }
+            },
             arms: {
                 patient: 'baseline_arm_2',
                 caregiver: 'baseline_arm_1'
@@ -403,25 +435,30 @@
                 cgEmail: 'cg_email',
                 cgPhone: 'cg_phone',
                 recordType: 'record_type',
-                notificationPreference: 'notification_preference',
-                recordStatus: 'record_status'
+                startDate: 'start_date',
+                surveyStartDate: 'survey_start_date',
+                recordSetupComplete: 'record_setup_complete',
+                clinicPlacement: 'clinic_placement'
             }
         };
 
         // Progress tracking
         let currentStep = 0;
         const stepsAdult = [
-            '1. Creating participant record...',
-            '2. Complete!'
-        ];
-        const stepsMinorWithCG = [
-            '1. Creating participant record...',
-            '2. Creating caregiver record...',
+            '1. Verifying API token matches project...',
+            '2. Creating participant record...',
             '3. Complete!'
         ];
+        const stepsMinorWithCG = [
+            '1. Verifying API token matches project...',
+            '2. Creating participant record...',
+            '3. Creating caregiver record...',
+            '4. Complete!'
+        ];
         const stepsMinorNoCG = [
-            '1. Creating participant record...',
-            '2. Complete!'
+            '1. Verifying API token matches project...',
+            '2. Creating participant record...',
+            '3. Complete!'
         ];
 
         const form = document.getElementById('enrollmentForm');
@@ -527,6 +564,40 @@
             return age;
         }
 
+        /**
+         * Returns tomorrow's date formatted as YYYY-MM-DD HH:MM:SS with time set to 07:00:00.
+         * REDCap datetime fields typically expect this format.
+         */
+        function getTomorrowAt7am() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return formatAt7am(tomorrow);
+        }
+
+        /**
+         * Clinical survey start date: today for Outpatient; otherwise the next Monday
+         * (today if today is Monday). survey_start_date is a date-only field (YYYY-MM-DD).
+         */
+        function getClinicalSurveyStartDate(clinicPlacement) {
+            const date = new Date();
+            if (clinicPlacement !== 'Outpatient') {
+                const daysUntilMonday = (1 - date.getDay() + 7) % 7; // getDay(): 0 = Sunday, 1 = Monday
+                date.setDate(date.getDate() + daysUntilMonday);
+            }
+            return formatDate(date);
+        }
+
+        function formatAt7am(date) {
+            return `${formatDate(date)} 07:00:00`;
+        }
+
+        function formatDate(date) {
+            const yyyy = date.getFullYear();
+            const mm   = String(date.getMonth() + 1).padStart(2, '0');
+            const dd   = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -538,15 +609,16 @@
             
             // Get API token from form
             const apiToken = document.getElementById('apiToken').value.trim();
+            const project = document.getElementById('project').value;
             
             const formData = {
+                clinicPlacement: document.getElementById('clinicPlacement').value,
                 ptFirstName: document.getElementById('ptFirstName').value.trim(),
                 ptLastName: document.getElementById('ptLastName').value.trim(),
                 dob: document.getElementById('ptDob').value,
                 age: calculateAge(document.getElementById('ptDob').value),
                 ptEmail: document.getElementById('ptEmail').value.trim(),
                 ptPhone: document.getElementById('ptPhone').value.trim(),
-                notificationPreference: document.querySelector('input[name="notificationPreference"]:checked').value,
                 isAdult: calculateAge(document.getElementById('ptDob').value) >= 18,
                 caregiverConsent: null,
                 collectCgInfo: false,
@@ -574,7 +646,7 @@
                 showProgress();
                 showStatus('processing', 'Creating records...');
                 
-                const result = await createRecords(apiToken, formData);
+                const result = await createRecords(apiToken, project, formData);
                 
                 hideProgress();
                 showStatus('success', '✓ Records created successfully!');
@@ -592,20 +664,37 @@
             }
         });
 
-        async function createRecords(apiToken, formData) {
-            // Always create new records for new patients
+        async function createRecords(apiToken, project, formData) {
             updateProgress(0);
+            await verifyProjectToken(apiToken, project);
+            if (formData.clinicPlacement) {
+                formData.clinicPlacementCode = await getChoiceCode(apiToken, REDCAP_CONFIG.fields.clinicPlacement, formData.clinicPlacement);
+            }
+
+            // Always create new records for new patients
+            updateProgress(1);
             const recordNumber = await getNextRecordNumber(apiToken);
-            // Format record number with zero-padding (e.g., 0001)
-            const paddedRecordNumber = String(recordNumber).padStart(4, '0');
-            const ptId = `${paddedRecordNumber}-PT`;
-            const cgId = `${paddedRecordNumber}-CG`;
+            let ptId, cgId;
+            if (project === 'Clinical') {
+                // Clinical: patients are 1, 2, 3...; caregivers are 1-CG, 2-CG, 3-CG...
+                ptId = `${recordNumber}`;
+                cgId = `${recordNumber}-CG`;
+                formData.startDateField = REDCAP_CONFIG.fields.surveyStartDate;
+                formData.startDateValue = getClinicalSurveyStartDate(formData.clinicPlacement);
+            } else {
+                formData.startDateField = REDCAP_CONFIG.fields.startDate;
+                formData.startDateValue = getTomorrowAt7am();
+                // Research: zero-padded with suffix (e.g., 0001-PT, 0001-CG)
+                const paddedRecordNumber = String(recordNumber).padStart(4, '0');
+                ptId = `${paddedRecordNumber}-PT`;
+                cgId = `${paddedRecordNumber}-CG`;
+            }
 
             if (formData.isAdult) {
                 // Adult patient - create PT record in baseline_arm_2
                 const ptRecordType = 2; // Adult
                 await createPtRecord(apiToken, ptId, formData, ptRecordType, REDCAP_CONFIG.arms.patient);
-                updateProgress(1);
+                updateProgress(2);
 
                 return {
                     recordNumber,
@@ -620,12 +709,12 @@
                 
                 // Always include caregiver info in PT record if collected
                 await createPtRecord(apiToken, ptId, formData, ptRecordType, REDCAP_CONFIG.arms.patient, formData.collectCgInfo);
-                updateProgress(1);
+                updateProgress(2);
 
                 if (createCGRecord) {
                     // Create separate CG record in baseline_arm_1
                     await createCgRecord(apiToken, cgId, formData, REDCAP_CONFIG.arms.caregiver);
-                    updateProgress(2);
+                    updateProgress(3);
 
                     return {
                         recordNumber,
@@ -636,7 +725,7 @@
                     };
                 } else {
                     // No separate CG record, but caregiver info is in PT record
-                    updateProgress(2);
+                    updateProgress(3);
 
                     return {
                         recordNumber,
@@ -647,6 +736,63 @@
                     };
                 }
             }
+        }
+
+        async function redcapExport(apiToken, params) {
+            const body = new URLSearchParams({ token: apiToken, format: 'json', ...params });
+            const response = await fetch(REDCAP_CONFIG.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            });
+            const text = await response.text();
+            if (!response.ok) {
+                throw new Error(`REDCap ${params.content} export failed: ${text}`);
+            }
+            return JSON.parse(text);
+        }
+
+        /**
+         * Confirms the token belongs to the selected project by exporting the project's
+         * info and comparing its project_id to the configured PID.
+         */
+        async function verifyProjectToken(apiToken, project) {
+            const expectedId = REDCAP_CONFIG.projects[project]?.projectId;
+            if (!expectedId) {
+                throw new Error(`No project ID configured for "${project}" project.`);
+            }
+
+            const info = await redcapExport(apiToken, { content: 'project' });
+            if (String(info.project_id) !== String(expectedId)) {
+                throw new Error(`This API token belongs to "${info.project_title}" (PID ${info.project_id}), not the ${project} project. No records were created.`);
+            }
+        }
+
+        /**
+         * Looks up the raw code for a dropdown label (e.g. "PHP" -> "1") from the
+         * project's data dictionary, so the form doesn't depend on hardcoded codes.
+         */
+        async function getChoiceCode(apiToken, fieldName, label) {
+            const metadata = await redcapExport(apiToken, { content: 'metadata', 'fields[0]': fieldName });
+            const field = metadata.find(f => f.field_name === fieldName);
+            if (!field) {
+                throw new Error(`Field "${fieldName}" not found in this REDCap project.`);
+            }
+
+            // Choices look like "1, PHP | 2, IOP | ..."
+            const choice = field.select_choices_or_calculations
+                .split('|')
+                .map(c => c.trim())
+                .map(c => {
+                    const i = c.indexOf(',');
+                    return { code: c.slice(0, i).trim(), label: c.slice(i + 1).trim() };
+                })
+                .find(c => c.label.toLowerCase() === label.toLowerCase());
+
+            if (!choice) {
+                throw new Error(`"${label}" is not a valid choice for ${fieldName} in this REDCap project.`);
+            }
+            return choice.code;
         }
 
         async function getNextRecordNumber(apiToken) {
@@ -688,11 +834,11 @@
                 return 1;
             }
             
-            // Extract numeric parts from record IDs (format: NUMBER-PT or NUMBER-CG)
+            // Extract numeric parts from record IDs (format: NUMBER, NUMBER-PT or NUMBER-CG)
             const recordNumbers = records
                 .map(r => {
-                    // Remove the suffix (-PT or -CG) and parse the number
-                    const match = r.record_id.match(/^(\d+)-(PT|CG)$/);
+                    // Remove the optional suffix (-PT or -CG) and parse the number
+                    const match = r.record_id.match(/^(\d+)(?:-(PT|CG))?$/);
                     return match ? parseInt(match[1], 10) : NaN;
                 })
                 .filter(n => !isNaN(n));
@@ -716,8 +862,8 @@
                 [REDCAP_CONFIG.fields.ptDob]: formData.dob,
                 [REDCAP_CONFIG.fields.ptAge]: formData.age,
                 [REDCAP_CONFIG.fields.recordType]: recordType,
-                [REDCAP_CONFIG.fields.notificationPreference]: formData.notificationPreference,
-                [REDCAP_CONFIG.fields.recordStatus]: 1  // 1 = New patient
+                [formData.startDateField]: formData.startDateValue,
+                [REDCAP_CONFIG.fields.recordSetupComplete]: 2,
             }];
             
             // Only include email/phone if they have values
@@ -726,6 +872,9 @@
             }
             if (formData.ptPhone) {
                 record[0][REDCAP_CONFIG.fields.ptPhone] = formData.ptPhone;
+            }
+            if (formData.clinicPlacementCode) {
+                record[0][REDCAP_CONFIG.fields.clinicPlacement] = formData.clinicPlacementCode;
             }
             
             // If minor and caregiver info should be included
@@ -772,8 +921,8 @@
                 [REDCAP_CONFIG.fields.ptDob]: formData.dob,
                 [REDCAP_CONFIG.fields.ptAge]: formData.age,
                 [REDCAP_CONFIG.fields.recordType]: 1,  // record_type = 1 for caregivers
-                [REDCAP_CONFIG.fields.notificationPreference]: formData.notificationPreference,
-                [REDCAP_CONFIG.fields.recordStatus]: 1  // 1 = New patient
+                [formData.startDateField]: formData.startDateValue,
+                [REDCAP_CONFIG.fields.recordSetupComplete]: 2,
             }];
             
             // Only include phone numbers if they have values
