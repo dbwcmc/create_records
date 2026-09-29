@@ -925,7 +925,7 @@
                 [REDCAP_CONFIG.fields.ptDob]: formData.dob,
                 [REDCAP_CONFIG.fields.ptAge]: formData.age,
                 [REDCAP_CONFIG.fields.recordType]: 1,  // record_type = 1 for caregivers
-                [formData.startDateField]: formData.startDateValue,
+                                ...formData.startDates,
                 [REDCAP_CONFIG.fields.recordSetupComplete]: 2,
             }];
             
