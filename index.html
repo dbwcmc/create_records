@@ -679,15 +679,19 @@
                 // Clinical: patients are 1, 2, 3...; caregivers are 1-CG, 2-CG, 3-CG...
                 ptId = `${recordNumber}`;
                 cgId = `${recordNumber}-CG`;
-                formData.startDateField = REDCAP_CONFIG.fields.surveyStartDate;
-                formData.startDateValue = getClinicalSurveyStartDate(formData.clinicPlacement);
+                formData.startDates = {
+                    [REDCAP_CONFIG.fields.surveyStartDate]: getClinicalSurveyStartDate(formData.clinicPlacement)
+                };
             } else {
-                formData.startDateField = REDCAP_CONFIG.fields.startDate;
-                formData.startDateValue = formatDate(new Date());
                 // Research: zero-padded with suffix (e.g., 0001-PT, 0001-CG)
                 const paddedRecordNumber = String(recordNumber).padStart(4, '0');
                 ptId = `${paddedRecordNumber}-PT`;
                 cgId = `${paddedRecordNumber}-CG`;
+                const today = formatDate(new Date());
+                formData.startDates = {
+                    [REDCAP_CONFIG.fields.startDate]: today,
+                    [REDCAP_CONFIG.fields.surveyStartDate]: today
+                };
             }
 
             if (formData.isAdult) {
@@ -862,7 +866,7 @@
                 [REDCAP_CONFIG.fields.ptDob]: formData.dob,
                 [REDCAP_CONFIG.fields.ptAge]: formData.age,
                 [REDCAP_CONFIG.fields.recordType]: recordType,
-                [formData.startDateField]: formData.startDateValue,
+                ...formData.startDates,
                 [REDCAP_CONFIG.fields.recordSetupComplete]: 2,
             }];
             
