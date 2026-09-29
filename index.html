@@ -683,7 +683,7 @@
                 formData.startDateValue = getClinicalSurveyStartDate(formData.clinicPlacement);
             } else {
                 formData.startDateField = REDCAP_CONFIG.fields.startDate;
-                formData.startDateValue = getTomorrowAt7am();
+                formData.startDateValue = formatDate(new Date());
                 // Research: zero-padded with suffix (e.g., 0001-PT, 0001-CG)
                 const paddedRecordNumber = String(recordNumber).padStart(4, '0');
                 ptId = `${paddedRecordNumber}-PT`;
